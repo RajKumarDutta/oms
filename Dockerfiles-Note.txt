@@ -1,0 +1,9 @@
+# Dockerfiles for each service
+# Note: These assume the jars are built in the target directory via 'mvn clean package'
+
+# discovery-server/Dockerfile
+# FROM eclipse-temurin:17-jdk-alpine
+# COPY target/*.jar app.jar
+# ENTRYPOINT ["java","-jar","/app.jar"]
+
+# Repeat for others...

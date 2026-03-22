@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/orderdb
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: update
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: order-group
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: "*"
+        spring.json.type.mapping: "com.rdutta.paymentservice.events.PaymentSuccessEvent:com.rdutta.orderservice.events.PaymentSuccessEvent,com.rdutta.paymentservice.events.PaymentFailedEvent:com.rdutta.orderservice.events.PaymentFailedEvent,com.rdutta.paymentservice.events.OrderCreatedEvent:com.rdutta.orderservice.events.OrderCreatedEvent"
+  redis:
+    host: redis
+    port: 6379
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orderdb
+  kafka:
+    bootstrap-servers: localhost:9092
+  redis:
+    host: localhost
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      inventoryService:
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
