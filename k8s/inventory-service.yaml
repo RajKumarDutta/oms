@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: inventory-service
-          image: rdutta2/inventory-service:latest
+          image: rdutta2/inventory-service:6
           ports:
             - containerPort: 8081
           env:

@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: order-service
-          image: rdutta2/order-service:latest
+          image: rdutta2/order-service:6
           ports:
             - containerPort: 8080
           env:
