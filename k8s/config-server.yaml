@@ -29,13 +29,25 @@ spec:
     spec:
       containers:
         - name: config-server
-          image: YOUR_DOCKERHUB_USERNAME/config-server:latest
+          image: rdutta2/config-server:latest
           ports:
             - containerPort: 8888
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8888
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8888
+            initialDelaySeconds: 20
+            periodSeconds: 15
           resources:
             requests:
               memory: "512Mi"
-              cpu: "250m"
+              cpu: "200m"
             limits:
-              memory: "1024Mi"
+              memory: "768Mi"
               cpu: "500m"

@@ -1,76 +1,100 @@
 pipeline {
     agent any
 
+    parameters {
+        booleanParam(name: 'DISCOVERY_SERVER', defaultValue: false)
+        booleanParam(name: 'CONFIG_SERVER', defaultValue: false)
+        booleanParam(name: 'API_GATEWAY', defaultValue: false)
+        booleanParam(name: 'ORDER_SERVICE', defaultValue: false)
+        booleanParam(name: 'PAYMENT_SERVICE', defaultValue: false)
+        booleanParam(name: 'INVENTORY_SERVICE', defaultValue: false)
+    }
+
     environment {
-        DOCKER_HUB_USER = 'YOUR_DOCKERHUB_USERNAME' // Change this
-        DOCKER_HUB_CRED_ID = 'docker-hub-credentials' // Jenkins Credential ID
+        DOCKER_HUB_USER = 'rdutta2'
+        DOCKER_HUB_CRED_ID = 'docker-hub-credentials'
+        GIT_CRED_ID = 'github-cred'
         BUILD_TAG = "${env.BUILD_NUMBER}"
+        GIT_REPO = 'https://github.com/RajKumarDutta/oms.git'
+        BRANCH = 'main'
     }
 
     stages {
+
         stage('Checkout') {
             steps {
-                checkout scm
+                git branch: "${BRANCH}",
+                    credentialsId: "${GIT_CRED_ID}",
+                    url: "${GIT_REPO}"
+            }
+        }
+
+        stage('Detect Services') {
+            steps {
+                script {
+                    def selected = []
+
+                    // Manual selection
+                    if (params.DISCOVERY_SERVER) selected << 'discovery-server'
+                    if (params.CONFIG_SERVER) selected << 'config-server'
+                    if (params.API_GATEWAY) selected << 'api-gateway'
+                    if (params.ORDER_SERVICE) selected << 'order-service'
+                    if (params.PAYMENT_SERVICE) selected << 'payment-service'
+                    if (params.INVENTORY_SERVICE) selected << 'inventory-service'
+
+                    if (selected.size() == 0) {
+                        echo "No manual selection → auto-detecting changes..."
+
+                        def changes = sh(
+                            script: "git diff --name-only HEAD~1 HEAD || true",
+                            returnStdout: true
+                        ).trim().split("\n")
+
+                        changes.each { file ->
+                            if (file.startsWith('discovery-server/')) selected << 'discovery-server'
+                            if (file.startsWith('config-server/')) selected << 'config-server'
+                            if (file.startsWith('api-gateway/')) selected << 'api-gateway'
+                            if (file.startsWith('order-service/')) selected << 'order-service'
+                            if (file.startsWith('payment-service/')) selected << 'payment-service'
+                            if (file.startsWith('inventory-service/')) selected << 'inventory-service'
+                        }
+
+                        selected = selected.unique()
+                    }
+
+                    if (selected.size() == 0) {
+                        echo "No changes detected → building ALL services"
+                        selected = [
+                            'discovery-server',
+                            'config-server',
+                            'api-gateway',
+                            'order-service',
+                            'payment-service',
+                            'inventory-service'
+                        ]
+                    }
+
+                    env.SERVICES = selected.join(',')
+                    echo "Services to build: ${env.SERVICES}"
+                }
             }
         }
 
         stage('Build Services') {
-            parallel {
-                stage('Discovery Server') {
-                    steps {
-                        dir('discovery-server') {
-                            sh 'mvn clean install -DskipTests'
-                        }
-                    }
-                }
-                stage('Config Server') {
-                    steps {
-                        dir('config-server') {
-                            sh 'mvn clean install -DskipTests'
-                        }
-                    }
-                }
-                stage('API Gateway') {
-                    steps {
-                        dir('api-gateway') {
-                            sh 'mvn clean install -DskipTests'
-                        }
-                    }
-                }
-                stage('Order Service') {
-                    steps {
-                        dir('order-service') {
-                            sh 'mvn clean install -DskipTests'
-                        }
-                    }
-                }
-                stage('Payment Service') {
-                    steps {
-                        dir('payment-service') {
-                            sh 'mvn clean install -DskipTests'
-                        }
-                    }
-                }
-                stage('Inventory Service') {
-                    steps {
-                        dir('inventory-service') {
-                            sh 'mvn clean install -DskipTests'
-                        }
-                    }
-                }
+            steps {
+                echo "Skipping local Maven build; multi-stage Docker builds will handle compilation."
             }
         }
 
         stage('Build & Push Docker Images') {
             steps {
                 script {
-                    def services = ['discovery-server', 'config-server', 'api-gateway', 'order-service', 'payment-service', 'inventory-service']
-                    docker.withRegistry('https://index.docker.io/v1/', "${DOCKER_HUB_CRED_ID}") {
-                        services.each { service ->
+                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_HUB_CRED_ID) {
+                        env.SERVICES.split(',').each { service ->
                             dir(service) {
-                                def customImage = docker.build("${DOCKER_HUB_USER}/${service}:${BUILD_TAG}")
-                                customImage.push()
-                                customImage.push('latest')
+                                def image = docker.build("${DOCKER_HUB_USER}/${service}:${BUILD_TAG}")
+                                image.push()
+                                image.push("latest")
                             }
                         }
                     }
@@ -78,37 +102,46 @@ pipeline {
             }
         }
 
-        stage('Update GitOps Manifests') {
+        stage('Update K8s Manifests') {
             steps {
                 script {
-                    // This updates the image tags in your K8s YAML files
-                    sh """
-                        sed -i 's|image: .*/discovery-server:.*|image: ${DOCKER_HUB_USER}/discovery-server:${BUILD_TAG}|g' k8s/discovery-server.yaml
-                        sed -i 's|image: .*/config-server:.*|image: ${DOCKER_HUB_USER}/config-server:${BUILD_TAG}|g' k8s/config-server.yaml
-                        sed -i 's|image: .*/api-gateway:.*|image: ${DOCKER_HUB_USER}/api-gateway:${BUILD_TAG}|g' k8s/api-gateway.yaml
-                        sed -i 's|image: .*/order-service:.*|image: ${DOCKER_HUB_USER}/order-service:${BUILD_TAG}|g' k8s/order-service.yaml
-                        sed -i 's|image: .*/payment-service:.*|image: ${DOCKER_HUB_USER}/payment-service:${BUILD_TAG}|g' k8s/payment-service.yaml
-                        sed -i 's|image: .*/inventory-service:.*|image: ${DOCKER_HUB_USER}/inventory-service:${BUILD_TAG}|g' k8s/inventory-service.yaml
-                    """
+                    env.SERVICES.split(',').each { service ->
+                        sh """
+                        sed -i 's|image: .*/${service}:.*|image: ${DOCKER_HUB_USER}/${service}:${BUILD_TAG}|g' k8s/${service}.yaml
+                        """
+                    }
                 }
             }
         }
-        
-        stage('Push Changes to Git') {
+
+        stage('Push to GitHub') {
             steps {
-                // IMPORTANT: Ensure Jenkins has git credentials to push back to the repo
-                sh """
-                    git config user.email "jenkins@example.com"
-                    git config user.name "Jenkins CI"
-                    git add k8s/*.yaml
-                    git commit -m "chore: update image tags to build ${BUILD_TAG}"
-                    git push origin head
-                """
+                withCredentials([usernamePassword(
+                    credentialsId: "${GIT_CRED_ID}",
+                    usernameVariable: 'GIT_USER',
+                    passwordVariable: 'GIT_PASS'
+                )]) {
+                    sh """
+                        git config user.email "jenkins@example.com"
+                        git config user.name "Jenkins CI"
+
+                        git add k8s/*.yaml
+                        git commit -m "update images to build ${BUILD_TAG}" || echo "No changes"
+
+                        git push https://${GIT_USER}:${GIT_PASS}@github.com/RajKumarDutta/oms.git HEAD:${BRANCH}
+                    """
+                }
             }
         }
     }
 
     post {
+        success {
+            echo "✅ Done → ArgoCD will deploy automatically"
+        }
+        failure {
+            echo "❌ Pipeline failed"
+        }
         always {
             cleanWs()
         }

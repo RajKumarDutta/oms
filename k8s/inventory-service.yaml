@@ -29,16 +29,28 @@ spec:
     spec:
       containers:
         - name: inventory-service
-          image: YOUR_DOCKERHUB_USERNAME/inventory-service:latest
+          image: rdutta2/inventory-service:latest
           ports:
             - containerPort: 8081
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: docker
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8081
+            initialDelaySeconds: 40
+            periodSeconds: 15
           resources:
             requests:
               memory: "512Mi"
-              cpu: "250m"
+              cpu: "300m"
             limits:
               memory: "1024Mi"
-              cpu: "500m"
+              cpu: "1000m"

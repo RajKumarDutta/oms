@@ -29,13 +29,25 @@ spec:
     spec:
       containers:
         - name: discovery-server
-          image: YOUR_DOCKERHUB_USERNAME/discovery-server:latest
+          image: rdutta2/discovery-server:latest
           ports:
             - containerPort: 8761
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8761
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8761
+            initialDelaySeconds: 20
+            periodSeconds: 15
           resources:
             requests:
               memory: "512Mi"
-              cpu: "250m"
+              cpu: "200m"
             limits:
-              memory: "1024Mi"
+              memory: "768Mi"
               cpu: "500m"
