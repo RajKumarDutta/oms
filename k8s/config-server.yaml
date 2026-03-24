@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: config-server
-          image: rdutta2/config-server:6
+          image: rdutta2/config-server:7
           ports:
             - containerPort: 8888
           readinessProbe:

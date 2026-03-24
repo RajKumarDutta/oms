@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: discovery-server
-          image: rdutta2/discovery-server:5
+          image: rdutta2/discovery-server:7
           ports:
             - containerPort: 8761
           readinessProbe:

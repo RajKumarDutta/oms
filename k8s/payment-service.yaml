@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: payment-service
-          image: rdutta2/payment-service:6
+          image: rdutta2/payment-service:7
           ports:
             - containerPort: 8082
           env:
