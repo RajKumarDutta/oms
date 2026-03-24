@@ -84,7 +84,6 @@ metadata:
 spec:
   ports:
     - port: 2181
-      targetPort: 2181  # ← explicit targetPort added
   selector:
     app: zookeeper
 ---
@@ -109,17 +108,15 @@ spec:
               value: "2181"
             - name: ZOOKEEPER_TICK_TIME
               value: "2000"
-            - name: ZOOKEEPER_SYNC_LIMIT   # ← added for stability
-              value: "2"
           ports:
             - containerPort: 2181
           resources:
             requests:
-              memory: "64Mi"
-              cpu: "50m"
-            limits:
               memory: "128Mi"
-              cpu: "200m"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
 ---
 apiVersion: v1
 kind: Service
@@ -128,7 +125,6 @@ metadata:
 spec:
   ports:
     - port: 9092
-      targetPort: 9092  # ← explicit targetPort added
   selector:
     app: kafka
 ---
@@ -145,17 +141,15 @@ spec:
       labels:
         app: kafka
     spec:
-      # ↓ Wait for Zookeeper to be ready before starting Kafka
       initContainers:
         - name: wait-for-zookeeper
           image: busybox
-          command:
-            - sh
-            - -c
-            - "until nc -z zookeeper 2181; do echo waiting for zookeeper; sleep 2; done"
+          command: ["sh", "-c", "until nc -z zookeeper 2181; do echo waiting for zookeeper; sleep 2; done"]
       containers:
         - name: kafka
           image: confluentinc/cp-kafka:7.5.0
+          ports:
+            - containerPort: 9092
           env:
             - name: KAFKA_BROKER_ID
               value: "1"
@@ -163,7 +157,7 @@ spec:
               value: "zookeeper:2181"
             - name: KAFKA_LISTENERS
               value: "PLAINTEXT://0.0.0.0:9092"
-            - name: KAFKA_ADVERTISED_LISTENERS        # ← replaces deprecated KAFKA_ADVERTISED_PORT
+            - name: KAFKA_ADVERTISED_LISTENERS
               value: "PLAINTEXT://kafka:9092"
             - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
               value: "PLAINTEXT:PLAINTEXT"
@@ -171,14 +165,12 @@ spec:
               value: "PLAINTEXT"
             - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
               value: "1"
-            - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE  # ← recommended for dev
-              value: "true"
-          ports:
-            - containerPort: 9092
+            - name: KAFKA_HEAP_OPTS
+              value: "-Xmx512M -Xms512M"
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "200m"
+              memory: "640Mi"
+              cpu: "250m"
             limits:
-              memory: "1024Mi"
-              cpu: "1000m"
+              memory: "1Gi"
+              cpu: "500m"
