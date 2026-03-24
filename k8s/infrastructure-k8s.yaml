@@ -102,7 +102,7 @@ spec:
     spec:
       containers:
         - name: kafka
-          image: bitnami/kafka:3.4
+          image: bitnami/kafka:3.4.1
           env:
             - name: ALLOW_PLAINTEXT_LISTENER
               value: "yes"
@@ -141,7 +141,7 @@ spec:
     spec:
       containers:
         - name: zookeeper
-          image: bitnami/zookeeper:3.8
+          image: bitnami/zookeeper:3.8.1
           env:
             - name: ALLOW_ANONYMOUS_LOGIN
               value: "yes"
